@@ -9,7 +9,16 @@ import android.provider.CalendarContract
 import android.content.Context
 import android.database.Cursor
 import android.util.Log
-import com.example.jingleplayerapp.CalendarUiState
+
+data class CalendarInfo(val id: Long, val displayName: String)
+
+data class CalendarUiState(
+    val calendars: List<CalendarInfo> = emptyList(),
+    val selectedCalendar: CalendarInfo? = null,
+    val isLoading: Boolean = false,
+    val isDropdownExpanded: Boolean = false
+)
+
 
 class CalendarViewModel : ViewModel() {
 
