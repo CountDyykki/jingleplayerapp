@@ -2,12 +2,15 @@
 package com.example.jingleplayerapp
 
 import CalendarViewModel
-import Game
 import Jingle
+import Scheduler
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.OptIn
 import androidx.compose.foundation.clickable
@@ -15,14 +18,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -38,7 +38,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,28 +45,22 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.RawResourceDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.jingleplayerapp.ui.theme.JingleplayerappTheme
+import createjingles
 import kotlinx.coroutines.delay
-import java.time.Duration
-import java.time.Instant
-import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import kotlin.Int
 
 
 data class Songtoplay(val name:String, val type:String)
 
-
-
-
-
 class MainActivity : ComponentActivity() {
+
     private lateinit var exoPlayer: ExoPlayer
     private val calendarViewModel: CalendarViewModel by viewModels()
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,10 +71,14 @@ class MainActivity : ComponentActivity() {
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
         exoPlayer.setAudioAttributes(audioAttributes, true)
+
+
+
         setContent {
             JingleplayerappTheme {
                 Mainmenu(exoPlayer,calendarViewModel)
             }
+
         }
     }
 
@@ -90,14 +87,21 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         exoPlayer.release()
     }
+
+
+
+
 }
 
 @Composable
 fun Mainmenu(exoPlayer: ExoPlayer, calendarViewModel: CalendarViewModel) {
-    val jingleslist = remember { mutableStateListOf<Jingle>() }
     val nextsong = remember { mutableStateOf(Songtoplay("", "Start")) }
-    val delayminutes = remember { mutableStateOf(5) }
+    val delayminutes = remember { mutableStateOf(5)}
+    val jingleslist = remember { mutableStateListOf<Jingle>()}
     val jinglelength = remember { mutableStateOf(10) }
+    val textit = remember { mutableStateOf("") }
+
+
     Scaffold(
         topBar = {
             BottomAppBar(
@@ -105,7 +109,7 @@ fun Mainmenu(exoPlayer: ExoPlayer, calendarViewModel: CalendarViewModel) {
                 contentColor = MaterialTheme.colorScheme.primary,
                 content =
                     {
-                        Text("Choose Calendar")
+                        Text("Select Calendar: ")
                         // LoadCalenderEvents(gameslist=gameslist)
                         CalendarDropdown(calendarViewModel = calendarViewModel)
                     })
@@ -113,7 +117,7 @@ fun Mainmenu(exoPlayer: ExoPlayer, calendarViewModel: CalendarViewModel) {
         bottomBar = {
             BottomAppBar(
                 content = {
-                    Scheduler(exoPlayer,jingleslist,nextsong,jinglelength)
+                    SchedulerScreen(exoPlayer,jingleslist,nextsong,jinglelength,textit)
                 })
 
         },
@@ -121,6 +125,7 @@ fun Mainmenu(exoPlayer: ExoPlayer, calendarViewModel: CalendarViewModel) {
             FAB()
         }
     ) { innerPadding ->
+
         Column(
             modifier = Modifier
                 .padding(innerPadding),
@@ -128,13 +133,11 @@ fun Mainmenu(exoPlayer: ExoPlayer, calendarViewModel: CalendarViewModel) {
         ) {
             // ShowCalenderEvents(gameslist)
             Configuretimes(jinglelength,delayminutes)
-            CreatePlayList(calendarViewModel,jingleslist,delayminutes)
+            // CreatePlayList(calendarViewModel,jingleslist,delayminutes)
+            PlaylistScreen(calendarViewModel,jingleslist,delayminutes)
         }
     }
 }
-
-
-
 
 @Composable
 fun FAB() {
@@ -145,9 +148,6 @@ fun FAB() {
         )
     }
 }
-
-
-
 
 @Composable
 fun CalendarDropdown(calendarViewModel: CalendarViewModel) {
@@ -184,64 +184,26 @@ fun CalendarDropdown(calendarViewModel: CalendarViewModel) {
 }
 
 @Composable
-fun CreatePlayList(calendarViewModel: CalendarViewModel, playlist: MutableList<Jingle>, delayminutes:MutableState<Int>) {
+fun PlaylistScreen(calendarViewModel: CalendarViewModel,playlist: MutableList<Jingle>,delayMinutes: MutableState<Int>
+) {
     val uiState by calendarViewModel.uiState.collectAsState()
-    val gameslist = uiState.games
-    Log.i("CreatePlayList","Create Jingle list with ${gameslist.size} game(s) and delay of ${delayminutes}" )
+    val formatter = DateTimeFormatter.ofPattern("HH:mm:ss")
 
-
-    // LaunchedEffect(gameslist) {
-    //   while (true) {
-    playlist.clear()
-    for (index in gameslist.indices) {
-        val now = Instant.now()
-        val game: Game = gameslist[index]
-
-        val jinglestart = Jingle(game.name, "Start", game.start)
-        val jingleend = Jingle(game.name, "End", game.end)
-        val enventdeltaenddatetime =
-            game.end.minusSeconds(delayminutes.value.toLong() * 60)
-        val jingledeltaend =
-            Jingle(game.name, "DeltaEnd", enventdeltaenddatetime)
-
-        if (now.isBefore(jinglestart.start)) {
-            playlist.add(jinglestart)
+    LaunchedEffect(uiState.games, delayMinutes.value) {
+        while (true) {
+            createjingles(uiState.games, playlist, delayMinutes)
+            delay(1000) // Delay for 1 second
         }
-        if (now.isBefore(jingleend.start)) {
-            playlist.add(jingleend)
-        }
-        if (now.isBefore(jingledeltaend.start)) {
-            if (delayminutes.value.toLong() > 0) {
-                playlist.add(jingledeltaend)
-            }
-        }
-        playlist.sortBy { it.start }
-        Log.i("CreatePlayList", "${playlist.size} jingles added to Playlist")
-        //     delay(1000)
-
-        // }
-
-
-        // }
     }
 
-    Text(
-        text = "Songs still to play:",
-        // modifier = Modifier.padding(16.dp)
-    )
-    LazyColumn( modifier = Modifier
-        .fillMaxWidth()
-        .fillMaxHeight(0.9f)
-    ) {
-        items(playlist) { jingle ->
-            Text(text = jingle.name + " " + jingle.type + " "+ LocalDateTime.ofInstant(jingle.start,
-                ZoneId.systemDefault()), modifier = Modifier.padding(8.dp))
+    // Use the playlist in your UI
+    Column {
+        playlist.forEach { jingle ->
+            val starttime =  jingle.start.atZone(ZoneId.systemDefault()).format(formatter)
+            Text(text = "$starttime | ${jingle.name} | ${jingle.type}")
         }
-
     }
 }
-
-
 
 @Composable
 fun Configuretimes(jingleength:MutableState<Int>, delayminutes: MutableState<Int>){
@@ -274,65 +236,10 @@ fun Configuretimes(jingleength:MutableState<Int>, delayminutes: MutableState<Int
 
 @OptIn(UnstableApi::class)
 @Composable
-fun Scheduler(exoPlayer:ExoPlayer, playlist: List<Jingle>, nextsong: MutableState<Songtoplay>, jinglelength: MutableState<Int>) {
-    var startPlaying = remember { mutableStateOf<Boolean>(false) }
-    Log.i("FindNextSong", "Starting Scheduler with ${playlist.size} jingles")
-    val songtoplay = remember {mutableStateOf<Songtoplay>(Songtoplay("","Start"))}
-    var textit by remember { mutableStateOf("") }
-    //LaunchedEffect(Unit) {
-    //    while(true){
-    if (playlist.isNotEmpty()) {
-        val now = Instant.now()
-        val nextjingle = playlist.first()
-        val duration =Duration.between(now,nextjingle.start)
-        nextsong.value = Songtoplay(nextjingle.name, nextjingle.type)
-        textit = "${nextjingle.name}/${nextjingle.type}: Start in ${duration.toMinutes()} min."
-        Log.i(
-            "FindNextSong",
-            "First jingle with positive duration: ${nextjingle.name}, Time to start: ${duration.toMinutes()} minutes"
-        )
-        // wenn die playlist einen weiterspringt
-        if (songtoplay.value != nextsong.value  ){
-            // spiele den song davor einmal ab
-            Log.i("PlaySong", "Playing ${songtoplay.value.type}-jingle for ${songtoplay.value.name} ")
-            PlaySong( exoPlayer, songtoplay,jinglelength)
-            songtoplay.value=nextsong.value
-        }
-    } else {
-        Log.i("FindNextSong", "No jingle with positive duration found.")
-        textit = "No jingles left"
-    }
-
-    //      delay(10000)
-    //  }
-    //}
+fun SchedulerScreen(exoPlayer:ExoPlayer, playlist: List<Jingle>, nextsong: MutableState<Songtoplay>, jinglelength: MutableState<Int>,textit:MutableState<String>){
+    Scheduler(exoPlayer, playlist, nextsong, jinglelength,textit)
     Text(
-        text = textit,
+        text = textit.value,
         modifier = Modifier.padding(16.dp)
     )
-}
-
-@Composable
-fun PlaySong( exoPlayer: ExoPlayer, songtoplay: MutableState<Songtoplay>,jinglelength: MutableState<Int>){
-    Log.i("Playertask","PlaySong started")
-    val soundMap = mutableMapOf(
-        "Start" to R.raw.start,
-        "End" to R.raw.end,
-        "DeltaEnd" to R.raw.beforeend
-    )
-    val soundId=soundMap[songtoplay.value.type]
-    if (soundId!=null) {
-        LaunchedEffect(Unit) {
-            Log.i("Playertask","Playing song ${soundId} with delay of ${jinglelength.value}")
-            val rawResourceUri = RawResourceDataSource.buildRawResourceUri(soundId)
-            val mediaItem = MediaItem.fromUri(rawResourceUri)
-            exoPlayer.setMediaItem(mediaItem)
-            exoPlayer.prepare()
-            exoPlayer.play()
-            Log.i("PlayerTask", "${exoPlayer.playbackState}")
-            delay(jinglelength.value.toLong()*1000)
-            Log.i("Playertask","Stopping Exoplayer")
-            exoPlayer.stop()
-        }
-    }
 }

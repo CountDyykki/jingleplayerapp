@@ -71,7 +71,7 @@ class CalendarViewModel : ViewModel() {
         val gameslist = mutableListOf<Game>()
         gameslist.clear()
             if (calendarId.toInt()==-1000) {
-                val game=Game("Testspiel", Instant.ofEpochMilli(System.currentTimeMillis()+70000),Instant.ofEpochMilli(System.currentTimeMillis()+100000))
+                val game=Game("Testspiel", Instant.ofEpochMilli(System.currentTimeMillis()+30000),Instant.ofEpochMilli(System.currentTimeMillis()+30000+6*60*1000))
                 gameslist.add(game)
             }
         else{
