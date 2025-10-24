@@ -1,12 +1,10 @@
 // icons from https://fonts.google.com/icons?selected=Material+Symbols+Outlined:stop:FILL@0;wght@400;GRAD@0;opsz@24&icon.size=24&icon.color=%231f1f1f&icon.platform=android
 package com.example.jingleplayerapp
 import android.util.Log
-import android.database.Cursor
 import android.os.Bundle
-import android.os.SystemClock.sleep
-import android.provider.CalendarContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.annotation.OptIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +32,6 @@ import androidx.compose.runtime.LaunchedEffect
 
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -43,8 +40,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.jingleplayerapp.ui.theme.JingleplayerappTheme
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.setValue
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
@@ -57,24 +52,35 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.RawResourceDataSource
 import kotlinx.coroutines.delay
 import kotlin.Boolean
+import CalendarViewModel
+import Game
+import Jingle
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateListOf
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlin.collections.mutableListOf
 
 
-internal data class Jingle(val name: String, val type: String, val start: Instant)
-internal data class Game(val name: String,  val start: Instant,val end: Instant)
+data class Songtoplay(val name:String, val type:String)
 
-internal data class Songtoplay(val name:String, val type:String)
 
 
 
 
 class MainActivity : ComponentActivity() {
     private lateinit var exoPlayer: ExoPlayer
+    private val calendarViewModel: CalendarViewModel by viewModels()
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         exoPlayer = ExoPlayer.Builder(this).build()
         setContent {
             JingleplayerappTheme {
-                Mainmenu(exoPlayer)
+                Mainmenu(exoPlayer,calendarViewModel)
             }
         }
     }
@@ -87,13 +93,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-
-fun Mainmenu(exoPlayer: ExoPlayer) {
-    val delayminutes = remember { mutableIntStateOf(5) }
+fun Mainmenu(exoPlayer: ExoPlayer, calendarViewModel: CalendarViewModel) {
     val jingleslist = remember { mutableStateListOf<Jingle>() }
-    val gameslist =  remember {mutableStateListOf<Game>()}
-    val jinglelength = remember { mutableIntStateOf(10) }
-
+    val nextsong = remember { mutableStateOf(Songtoplay("", "Start")) }
+    val delayminutes = remember { mutableStateOf(5) }
+    val jinglelength = remember { mutableStateOf(10) }
     Scaffold(
         topBar = {
             BottomAppBar(
@@ -102,7 +106,8 @@ fun Mainmenu(exoPlayer: ExoPlayer) {
                 content =
                     {
                         Text("Choose Calendar")
-                        LoadCalenderEvents(gameslist=gameslist)
+                        // LoadCalenderEvents(gameslist=gameslist)
+                        CalendarDropdown(calendarViewModel = calendarViewModel)
                     })
         },
         bottomBar = {
@@ -125,10 +130,13 @@ fun Mainmenu(exoPlayer: ExoPlayer) {
         ) {
             // ShowCalenderEvents(gameslist)
             Configuretimes(jinglelength,delayminutes)
-            CreatePlayList(gameslist,jingleslist,delayminutes)
+            CreatePlayList(calendarViewModel,jingleslist,delayminutes)
         }
     }
 }
+
+
+
 
 @Composable
 fun FAB() {
@@ -141,226 +149,83 @@ fun FAB() {
 }
 
 
+
+
 @Composable
-fun LoadCalenderEvents(gameslist:MutableList<Game>) {
-    Log.i("LoadCalenderEvents", "Fire Composable")
-    val calNamestate = remember { mutableStateOf("") }
-    val calIdstate = remember { mutableLongStateOf(-1) }
-
+fun CalendarDropdown(calendarViewModel: CalendarViewModel) {
+    val uiState by calendarViewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val isDropDownExpanded = remember {
-        mutableStateOf(false)
+
+    LaunchedEffect(Unit) {
+        // Trigger data loading once when the composable enters the composition
+        calendarViewModel.fetchCalendars(context)
     }
 
-    val itemPosition = remember {
-        mutableStateOf(0)
-    }
-
-    val calnames =  remember {mutableListOf<String>("TestCalendar")}
-    val calmap =  remember {mutableMapOf<String, Long>()}
-
-
-
-
-
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-
-        Box {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable {
-
-                    Log.i("LoadCalenderEvents", "filling drop down menu")
-                    isDropDownExpanded.value = true
-                    // Read all the calenders from the calendar app
-                    val CALENDAR_PROJECTION = arrayOf(
-                        CalendarContract.Calendars._ID,
-                        CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
-                        // CalendarContract.Calendars.NAME,
-                        // CalendarContract.Calendars.CALENDAR_COLOR,
-                    )
-                    val PROJECTION_ID_INDEX = 0
-                    val PROJECTION_DISPLAY_NAME_INDEX = 1
-                    // val PROJECTION_NAME_INDEX = 2
-                    // val PROJECTION_CALENDAR_COLOR_INDEX = 3
-                    val uri = CalendarContract.Calendars.CONTENT_URI
-                    val selection = ""
-                    val selectionArgs = emptyArray<String>()
-                    val calendarscursor: Cursor? = context.contentResolver.query(
-                        uri,
-                        CALENDAR_PROJECTION,
-                        selection, selectionArgs,
-                        null,
-                    )
-                    calendarscursor?.apply {
-                        while (moveToNext()) {
-                            val displayname = getString(PROJECTION_DISPLAY_NAME_INDEX)
-                            val id = getLong(PROJECTION_ID_INDEX)
-                            calnames.add(displayname)
-                            calmap.put(displayname, id)
-                        }
-
+    Box(modifier = Modifier.wrapContentSize(Alignment.TopStart)) {
+        Row(
+            modifier = Modifier.clickable {
+                calendarViewModel.setDropdownExpanded(true)
+            }
+        ) {
+            Text(text = uiState.selectedCalendar?.displayName ?: "No calendar selected")
+        }
+        DropdownMenu(
+            expanded = uiState.isDropdownExpanded,
+            onDismissRequest = { calendarViewModel.setDropdownExpanded(false) }
+        ) {
+            uiState.calendars.forEach { calendar ->
+                DropdownMenuItem(
+                    text = { Text(text = calendar.displayName) },
+                    onClick = {
+                        calendarViewModel.selectCalendar(calendar, context)
                     }
-                    Log.i("LoadCalenderEvents", "Load Events")
-
-
-            }
-
-            ) {
-                Text(text = calnames[itemPosition.value])
-
-            }
-            DropdownMenu(
-                expanded = isDropDownExpanded.value,
-                onDismissRequest = {
-
-                    isDropDownExpanded.value = false
-                }
-            ) {
-                calnames.forEachIndexed { index, calname ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(text = calname)
-                        },
-                        onClick = {
-                            isDropDownExpanded.value = false
-                            gameslist.clear()
-                            if(calname=="TestCalendar"){
-                                val Gamedebug=Game("Testspiel", Instant.ofEpochMilli(System.currentTimeMillis()+70000),Instant.ofEpochMilli(System.currentTimeMillis()+100000))
-                                gameslist.add(Gamedebug)
-                            }
-                            else{
-                            itemPosition.value = index
-                            calNamestate.value = calname
-                            // get Calendar ID from map
-                            calIdstate.value = calmap.getValue(calname)
-                            Log.i("LoadCalenderEvents", "Calender is ${calname} with ID ${calIdstate.value}")
-                            // Read the Calender Events
-                            val EVENTPROJECTION = arrayOf(
-                                CalendarContract.Events.TITLE,
-                                CalendarContract.Events.DTSTART,
-                                CalendarContract.Events.DTEND,
-                             //   CalendarContract.Events.EVENT_TIMEZONE,
-                             //   CalendarContract.Events.EVENT_END_TIMEZONE
-                            )
-                            val EVENTPROJECTION_TITLE_INDEX = 0
-                            val EVENTPROJECTION_DTSTART_INDEX = 1
-                            val EVENTPROJECTION_DTEND_INDEX = 2
-                            // val EVENTPROJECTION_TZ_INDEX= 3
-                            // val EVENTPROJECTION_TZEND_INDEX= 4
-                            val calId = calIdstate.value.toString()
-                            val urievent = CalendarContract.Events.CONTENT_URI
-                            val selectionevent = "${CalendarContract.Events.CALENDAR_ID}=${calId}"
-                            val eventscursor: Cursor? = context.contentResolver.query(
-                                urievent,
-                                EVENTPROJECTION,
-                                selectionevent,
-                                null,
-                                null
-                            )
-                            when (eventscursor?.count) {
-                                null -> {
-                                    Log.e("LoadCalenderEvents", "empty cursor")
-                                }
-
-                                0 -> {
-                                    Log.i("LoadCalenderEvents", "0 cursor")
-                                }
-
-                                else -> {
-                                    Log.i("LoadCalenderEvents", "working cursor")
-                                    eventscursor.apply {
-                                        while (moveToNext()) {
-                                            val eventtitle = getString(EVENTPROJECTION_TITLE_INDEX)
-                                            val eventstart = getLong(EVENTPROJECTION_DTSTART_INDEX)
-                                            val eventend = getLong(EVENTPROJECTION_DTEND_INDEX)
-                                            //val eventtz = getString(EVENTPROJECTION_TZ_INDEX)
-                                            //val eventtzend = getString(EVENTPROJECTION_TZEND_INDEX)
-
-                                            val eventstartdatetime =
-                                                Instant.ofEpochMilli(eventstart)
-
-
-                                            val eventenddatetime = Instant.ofEpochMilli(eventend)
-
-                                            val game = Game(
-                                                eventtitle,
-                                                eventstartdatetime,
-                                                eventenddatetime
-                                            )
-                                            gameslist.add(game)
-                                        }
-                                    }
-                                        gameslist.sortBy { it.start }
-                                        Log.i(
-                                            "LoadCalenderEvents", "${gameslist.size} Calender Event(s) added"
-                                        )
-                                    }
-                                }
-
-                            }
-
-
-
-
-                        })
-                }
-
+                )
             }
         }
-
     }
 }
-
-
-
-
 @Composable
 
-fun CreatePlayList(gameslist: List<Game>, playlist: MutableList<Jingle>, delayminutes:MutableState<Int>) {
-
+fun CreatePlayList(calendarViewModel: CalendarViewModel, playlist: MutableList<Jingle>, delayminutes:MutableState<Int>) {
+    val uiState by calendarViewModel.uiState.collectAsState()
+    val gameslist = uiState.games
     Log.i("CreatePlayList","Create Jingle list with ${gameslist.size} game(s) and delay of ${delayminutes}" )
 
 
-     // LaunchedEffect(gameslist) {
-     //   while (true) {
-                playlist.clear()
-                for (index in gameslist.indices) {
-                    val now = Instant.now()
-                    val game: Game = gameslist[index]
+    // LaunchedEffect(gameslist) {
+    //   while (true) {
+    playlist.clear()
+    for (index in gameslist.indices) {
+        val now = Instant.now()
+        val game: Game = gameslist[index]
 
-                    val jinglestart = Jingle(game.name, "Start", game.start)
-                    val jingleend = Jingle(game.name, "End", game.end)
-                    val enventdeltaenddatetime =
-                        game.end.minusSeconds(delayminutes.value.toLong() * 60)
-                    val jingledeltaend =
-                        Jingle(game.name, "DeltaEnd", enventdeltaenddatetime)
+        val jinglestart = Jingle(game.name, "Start", game.start)
+        val jingleend = Jingle(game.name, "End", game.end)
+        val enventdeltaenddatetime =
+            game.end.minusSeconds(delayminutes.value.toLong() * 60)
+        val jingledeltaend =
+            Jingle(game.name, "DeltaEnd", enventdeltaenddatetime)
 
-                    if (now.isBefore(jinglestart.start)) {
-                        playlist.add(jinglestart)
-                    }
-                    if (now.isBefore(jingleend.start)) {
-                        playlist.add(jingleend)
-                    }
-                    if (now.isBefore(jingledeltaend.start)) {
-                        if (delayminutes.value.toLong() > 0) {
-                            playlist.add(jingledeltaend)
-                        }
-                    }
-                    playlist.sortBy { it.start }
-                    Log.i("CreatePlayList", "${playlist.size} jingles added to Playlist")
-               //     delay(1000)
-
-               // }
-
-
-         // }
+        if (now.isBefore(jinglestart.start)) {
+            playlist.add(jinglestart)
         }
+        if (now.isBefore(jingleend.start)) {
+            playlist.add(jingleend)
+        }
+        if (now.isBefore(jingledeltaend.start)) {
+            if (delayminutes.value.toLong() > 0) {
+                playlist.add(jingledeltaend)
+            }
+        }
+        playlist.sortBy { it.start }
+        Log.i("CreatePlayList", "${playlist.size} jingles added to Playlist")
+        //     delay(1000)
+
+        // }
+
+
+        // }
+    }
 
     Text(
         text = "Songs still to play:",
@@ -369,10 +234,10 @@ fun CreatePlayList(gameslist: List<Game>, playlist: MutableList<Jingle>, delaymi
     LazyColumn( modifier = Modifier
         .fillMaxWidth()
         .fillMaxHeight(0.9f)
-         ) {
+    ) {
         items(playlist) { jingle ->
             Text(text = jingle.name + " " + jingle.type + " "+ LocalDateTime.ofInstant(jingle.start,
-               ZoneId.systemDefault()), modifier = Modifier.padding(8.dp))
+                ZoneId.systemDefault()), modifier = Modifier.padding(8.dp))
         }
 
     }
@@ -418,35 +283,35 @@ fun Scheduler(exoPlayer:ExoPlayer, playlist: List<Jingle>, nextsong: MutableStat
     var textit by remember { mutableStateOf("") }
     //LaunchedEffect(Unit) {
     //    while(true){
-            if (playlist.isNotEmpty()) {
-                val now = Instant.now()
-                val nextjingle = playlist.first()
-                val duration =Duration.between(now,nextjingle.start)
-                nextsong.value = Songtoplay(nextjingle.name, nextjingle.type)
-                textit = "${nextjingle.name}/${nextjingle.type}: Start in ${duration.toMinutes()} min."
-                Log.i(
-                    "FindNextSong",
-                    "First jingle with positive duration: ${nextjingle.name}, Time to start: ${duration.toMinutes()} minutes"
-                )
-                // wenn die playlist einen weiterspringt
-                if (songtoplay.value != nextsong.value  ){
-                // spiele den song davor einmal ab
-                    Log.i("PlaySong", "Playing ${songtoplay.value.type}-jingle for ${songtoplay.value.name} ")
-                    PlaySong( exoPlayer, songtoplay,jinglelength)
-                songtoplay.value=nextsong.value
-                }
-            } else {
-                Log.i("FindNextSong", "No jingle with positive duration found.")
-                textit = "No jingles left"
-            }
-            
-      //      delay(10000)
-      //  }
+    if (playlist.isNotEmpty()) {
+        val now = Instant.now()
+        val nextjingle = playlist.first()
+        val duration =Duration.between(now,nextjingle.start)
+        nextsong.value = Songtoplay(nextjingle.name, nextjingle.type)
+        textit = "${nextjingle.name}/${nextjingle.type}: Start in ${duration.toMinutes()} min."
+        Log.i(
+            "FindNextSong",
+            "First jingle with positive duration: ${nextjingle.name}, Time to start: ${duration.toMinutes()} minutes"
+        )
+        // wenn die playlist einen weiterspringt
+        if (songtoplay.value != nextsong.value  ){
+            // spiele den song davor einmal ab
+            Log.i("PlaySong", "Playing ${songtoplay.value.type}-jingle for ${songtoplay.value.name} ")
+            PlaySong( exoPlayer, songtoplay,jinglelength)
+            songtoplay.value=nextsong.value
+        }
+    } else {
+        Log.i("FindNextSong", "No jingle with positive duration found.")
+        textit = "No jingles left"
+    }
+
+    //      delay(10000)
+    //  }
     //}
     Text(
-            text = textit,
-            modifier = Modifier.padding(16.dp)
-        )
+        text = textit,
+        modifier = Modifier.padding(16.dp)
+    )
 }
 
 @Composable
@@ -460,16 +325,16 @@ fun PlaySong( exoPlayer: ExoPlayer, songtoplay: MutableState<Songtoplay>,jinglel
     val soundId=soundMap[songtoplay.value.type]
     if (soundId!=null) {
         LaunchedEffect(Unit) {
-                Log.i("Playertask","Playing song ${soundId} with delay of ${jinglelength.value}")
-                val rawResourceUri = RawResourceDataSource.buildRawResourceUri(soundId)
-                val mediaItem = MediaItem.fromUri(rawResourceUri)
-                exoPlayer.setMediaItem(mediaItem)
-                exoPlayer.prepare()
-                exoPlayer.play()
-                Log.i("PlayerTask", "${exoPlayer.playbackState}")
-                delay(jinglelength.value.toLong()*1000)
-                Log.i("Playertask","Stopping Exoplayer")
-                exoPlayer.stop()
+            Log.i("Playertask","Playing song ${soundId} with delay of ${jinglelength.value}")
+            val rawResourceUri = RawResourceDataSource.buildRawResourceUri(soundId)
+            val mediaItem = MediaItem.fromUri(rawResourceUri)
+            exoPlayer.setMediaItem(mediaItem)
+            exoPlayer.prepare()
+            exoPlayer.play()
+            Log.i("PlayerTask", "${exoPlayer.playbackState}")
+            delay(jinglelength.value.toLong()*1000)
+            Log.i("Playertask","Stopping Exoplayer")
+            exoPlayer.stop()
         }
     }
 }
