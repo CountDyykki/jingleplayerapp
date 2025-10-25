@@ -135,29 +135,13 @@ fun Mainmenu(context: Context) {
 
             Log.i("Schedule player","Play callback")
              val exoPlayer = ExoPlayer.Builder(context).build()
-            /* exoPlayer.addListener(object : Player.Listener {
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    exoPlayer.release()
-                }
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (playbackState == Player.STATE_ENDED) {
-                        // Stop playback and release focus when done
-                        exoPlayer.stop()
-                        exoPlayer.release()
-                    }
-                }
-                override fun onPlayerError(error: PlaybackException) {
-                    // Handle playback errors and stop the player
-                    exoPlayer.stop()
-                    exoPlayer.release()
-                }
-            })
-
-             */
             // handle audiofocus
             val audioAttributes: AudioAttributes = AudioAttributes.Builder()
-                .setUsage(C.USAGE_MEDIA)
+                // .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                // ducking
+                .setUsage(C.USAGE_ALARM)
+                //.setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
                 .build()
             exoPlayer.setAudioAttributes(audioAttributes, true)
 
@@ -169,6 +153,23 @@ fun Mainmenu(context: Context) {
                 exoPlayer.setMediaItem(mediaItem)
                 exoPlayer.prepare()
                 exoPlayer.play()
+           /*     exoPlayer.addListener(object : Player.Listener {
+
+               override fun onPlaybackStateChanged(playbackState: Int) {
+                   if (playbackState == Player.STATE_ENDED) {
+                       // Stop playback and release focus when done
+                       exoPlayer.stop()
+                       exoPlayer.release()
+                   }
+               }
+               override fun onPlayerError(error: PlaybackException) {
+                   // Handle playback errors and stop the player
+                   exoPlayer.stop()
+                   exoPlayer.release()
+               }
+           })
+
+*/
 
             delay(jingleLength.toLong() * 1000)
             exoPlayer.stop()
