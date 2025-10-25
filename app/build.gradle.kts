@@ -63,5 +63,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation ("com.google.accompanist:accompanist-systemuicontroller:0.36.0")
     implementation ("androidx.media3:media3-exoplayer:1.8.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.5")
+    implementation("com.google.dagger:hilt-android:2.57.1")
 }
 

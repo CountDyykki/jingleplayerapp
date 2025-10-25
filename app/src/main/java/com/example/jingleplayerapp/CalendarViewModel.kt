@@ -1,4 +1,5 @@
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -6,16 +7,24 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import android.provider.CalendarContract
-import android.content.Context
 import android.database.Cursor
 import android.util.Log
-
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.application
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import jakarta.inject.Inject
 import java.time.Instant
 import kotlin.collections.List
 
+// Ein Kalendar ist eine id mit einer Kalenderbezeichnung
 data class CalendarInfo(val id: Long, val displayName: String)
+// ein Game ist ein Kalendereintrag, also eine Bezeichnung mit Start und Ende
 data class Game(val name: String,  val start: Instant,val end: Instant)
-data class Jingle(val name: String, val type: String, val start: Instant)
+// Ein Song ist ein Titel mit
+
 data class CalendarUiState(
     val calendars: List<CalendarInfo> = emptyList(),
     val games: List<Game> = emptyList(),
@@ -24,16 +33,27 @@ data class CalendarUiState(
     val isDropdownExpanded: Boolean = false
 )
 
+class CalendarViewModelFactory(
+    private val application: Application
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(CalendarViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return CalendarViewModel(application) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+    }
+}
 
-class CalendarViewModel : ViewModel() {
-
+class CalendarViewModel(
+    application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
-    fun fetchCalendars(context: Context) {
+    fun fetchCalendars() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val calendars = getCalendarsFromContentProvider(context)
+            val calendars = getCalendarsFromContentProvider()
             _uiState.update {
                 it.copy(
                     calendars = calendars,
@@ -42,11 +62,11 @@ class CalendarViewModel : ViewModel() {
                 )
             }
             // Load events for the initially selected calendar if it exists
-            uiState.value.selectedCalendar?.let {loadEvents(context, it.id) }
+            uiState.value.selectedCalendar?.let {loadEvents( it.id) }
         }
     }
 
-    private fun getCalendarsFromContentProvider(context: Context): List<CalendarInfo> {
+    private fun getCalendarsFromContentProvider(): List<CalendarInfo> {
         val calendars = mutableListOf<CalendarInfo>()
         val projection = arrayOf(
             CalendarContract.Calendars._ID,
@@ -54,7 +74,7 @@ class CalendarViewModel : ViewModel() {
         )
         val uri = CalendarContract.Calendars.CONTENT_URI
         calendars.add(CalendarInfo(-1000, "TestCalender"))
-        context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+        application.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(0)
                 val displayName = cursor.getString(1)
@@ -64,9 +84,10 @@ class CalendarViewModel : ViewModel() {
         return calendars
     }
 
-    fun loadEvents(context: Context, calendarId: Long): List<Game> {
+    fun loadEvents(calendarId: Long): List<Game> {
         // Implement logic to load events for the given calendar ID
         // This will be another coroutine function that updates a different StateFlow
+
         Log.i("CalendarViewModel", "Loading events for calendar ID: $calendarId")
         val gameslist = mutableListOf<Game>()
         gameslist.clear()
@@ -91,7 +112,7 @@ class CalendarViewModel : ViewModel() {
             val calId = calendarId.toString()
             val urievent = CalendarContract.Events.CONTENT_URI
             val selectionevent = "${CalendarContract.Events.CALENDAR_ID}=${calId}"
-            val eventscursor: Cursor? = context.contentResolver.query(
+            val eventscursor: Cursor? = application.contentResolver.query(
                 urievent,
                 EVENTPROJECTION,
                 selectionevent,
@@ -143,9 +164,9 @@ class CalendarViewModel : ViewModel() {
         }
 
 
-    fun selectCalendar(calendar: CalendarInfo, context: Context) {
+    fun selectCalendar(calendar: CalendarInfo) {
         var games: List<Game>
-        games = loadEvents(context, calendar.id)
+        games = loadEvents( calendar.id)
         _uiState.update {
             it.copy(
                 selectedCalendar = calendar,
