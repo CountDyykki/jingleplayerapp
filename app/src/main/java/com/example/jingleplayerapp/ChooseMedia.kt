@@ -5,9 +5,13 @@ import android.provider.OpenableColumns
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
 
 @Composable
@@ -22,6 +26,7 @@ fun AudioFilePickerScreen(buttontxt: String, onAudioPicked: (Uri?) -> Unit) {
         }
     }
         Button(
+            modifier = Modifier.width(100.dp),
             onClick = {
                 pickAudioLauncher.launch("audio/*")
             }

@@ -96,15 +96,15 @@ fun NumberPicker(
                 }
             )
     ) {
-        val spacing = 4.dp
+        val spacing = 0.dp
 
 
         Icon(
             painter = painterResource(R.drawable.arrow_drop_up_24px),
             contentDescription = "Play",
-        )
+       )
 
-        Spacer(modifier = Modifier.height(spacing))
+        // Spacer(modifier = Modifier.height(spacing))
 
         Box(
             modifier = Modifier
@@ -133,8 +133,8 @@ fun NumberPicker(
             }
         }
 
-        Spacer(modifier = Modifier.height(spacing))
-        Icon(
+         Spacer(modifier = Modifier.height(spacing))
+         Icon(
             painter = painterResource(R.drawable.arrow_drop_down_24px),
             contentDescription = "Play",
         )

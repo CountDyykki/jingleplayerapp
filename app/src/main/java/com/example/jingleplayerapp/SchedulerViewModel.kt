@@ -1,5 +1,4 @@
 import android.app.Application
-import android.net.Uri
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -9,13 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import com.example.jingleplayerapp.UIstate
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -38,7 +31,7 @@ data class Song(val name: String, val type: String, val start: Instant)
 data class PlaybackData(val song: Song, val length: Int)
 
 // Das ist die State-Klasse die dieses viewmodel bereitstellt.
-data class SchedulerUiState(
+data class SchedulerState(
     // A List of the Songs which are still to play
     val playlist: List<Song> = emptyList(),
     // the next jingle to play
@@ -77,10 +70,10 @@ class SchedulerViewModelFactory(
         // Make it public as a SharedFlow
         val playbackEvent: SharedFlow<PlaybackData> = _playbackEvent.asSharedFlow()
 
-    private val _uiStatesched = MutableStateFlow(SchedulerUiState())
+    private val _schedState = MutableStateFlow(SchedulerState())
     private val _uiState = MutableStateFlow(UIstate())
 
-    val uiState: StateFlow<SchedulerUiState> = _uiStatesched.asStateFlow()
+    val schedState: StateFlow<SchedulerState> = _schedState.asStateFlow()
     private var schedulingJob: Job? = null
 
     init {
@@ -105,56 +98,47 @@ class SchedulerViewModelFactory(
                 .flatMapLatest { (uiState,calendaruistate) ->
                 flow<Unit> {
                     Log.i("SchedulerJob", "Scheduling Step.")
-
+                    Log.i("Scheduler","minutesbeforeendgame: ${uiState.minutesbeforeendgame}")
                      // first we create a playlist from the songs still to play
                     val fullplaylist = createplaylist(calendaruistate.games,uiState.minutesbeforeendgame)
                     val upcomingPlaylist: List<Song> = emptyList()
                     if (fullplaylist.isEmpty()) {
-                        _uiStatesched.update { it.copy(infotxt = "Empty Playlist. Consider loading a calendar") }
+                        _schedState.update { it.copy(infotxt = "Empty Playlist. Consider loading a calendar") }
                     }
                     else{
                         val now = Instant.now()
                         val threshold = Duration.ofMillis(500)
-                        val _actualsongfilterlist = fullplaylist.filter { song ->
+                        val actualsongfilterlist = fullplaylist.filter { song ->
                             val duration = Duration.between(now, song.start).abs()
                             duration.compareTo(threshold) <= 0
                         }
-                        val _actualsong = _actualsongfilterlist.firstOrNull()
+                        val actualsong = actualsongfilterlist.firstOrNull()
                         // list with only the remaining songs:
                         val upcomingPlaylist=fullplaylist.filter {it.start>now}
-                        val _nextsong = fullplaylist.firstOrNull { it.start > now }
+                        val nextsong = fullplaylist.firstOrNull { it.start > now }
                         // Calculate time difference between now and the next song to play
 
-                        _nextsong?.let {
-                            Log.i("Scheduler Val","Next song: ${_nextsong.name} | ${_nextsong.type} |${_nextsong.start} ")
-                            var _nextsongin = Duration.between(now, _nextsong.start)
-                        _uiStatesched.update { it.copy(
+                        nextsong?.let {
+                            Log.i("Scheduler Val","Next song: ${nextsong.name} | ${nextsong.type} |${nextsong.start} ")
+                            var nextsongin = Duration.between(now, nextsong.start)
+                        _schedState.update { it.copy(
                             playlist= upcomingPlaylist,
-                            nextsongin = _nextsongin,
-                            nextsong=_nextsong,
-                            infotxt = "${ _nextsong.name} | ${ _nextsong.type} in ${_nextsongin.toMinutes()}:${_nextsongin.toSecondsPart()} min")
+                            nextsongin = nextsongin,
+                            nextsong=nextsong,
+                            infotxt = "${ nextsong.name} | ${ nextsong.type} in ${nextsongin.toMinutes()}:${nextsongin.toSecondsPart()} min")
                         }
                         }
                         // wenn die playlist einen weiter springt spielen wir den vorigen song ab.
+                        actualsong?.let {
+                            Log.i("Scheduler Val","Actual Song: ${actualsong.name} | ${actualsong.type} | ${actualsong.start}")
 
-
-
-
-                        _actualsong?.let {
-                            Log.i("Scheduler Val","Actual Song: ${_actualsong.name} | ${_actualsong.type} | ${_actualsong.start}")
-
-                                _uiStatesched.update { it.copy(isplaying = true) }
-                                Log.i("Schedule Player", "Playing ${ _actualsong.name} | ${ _actualsong.type} ")
-                                val playbackData = PlaybackData(song=_actualsong, length = uiState.jinglelength)
+                                _schedState.update { it.copy(isplaying = true) }
+                                Log.i("Schedule Player", "Playing ${ actualsong.name} | ${ actualsong.type} ")
+                                val playbackData = PlaybackData(song=actualsong, length = uiState.jinglelength)
                                 // Emit the single object to the SharedFlow
                                 _playbackEvent.emit(playbackData)
-
-
-
                         }
-
                     }
-
                 }
             }
                 .collect()
@@ -194,55 +178,4 @@ class SchedulerViewModelFactory(
         //) }
         return playlist
     }
-}
-
-class mysuperMediaPlayer(application:Application){
-    val exoPlayer = ExoPlayer.Builder(application).build()
-    init {
-        // Handle audio focus and playback when player state changes
-        exoPlayer.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                exoPlayer.release()
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_ENDED) {
-                    // Stop playback and release focus when done
-                    exoPlayer.stop()
-                    exoPlayer.release()
-                }
-            }
-
-            override fun onPlayerError(error: PlaybackException) {
-                // Handle playback errors and stop the player
-                exoPlayer.stop()
-                exoPlayer.release()
-            }
-        })
-
-        // Set audio attributes with auto-focus handling
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(C.USAGE_MEDIA)
-            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-            .build()
-        exoPlayer.setAudioAttributes(audioAttributes, true) // Pass true for auto-focus
-    }
-
-
-    fun playAudio(uri: Uri?) {
-        if (uri != null) {
-            val mediaItem = MediaItem.fromUri(uri)
-            exoPlayer.setMediaItem(mediaItem)
-            exoPlayer.prepare()
-            exoPlayer.play()
-        }
-    }
-
-    fun stop() {
-        Log.i("Musicplayer", "Stop playing.")
-        exoPlayer.stop()
-        exoPlayer.release()
-
-    }
-
 }
