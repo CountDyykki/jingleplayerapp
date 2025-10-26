@@ -65,5 +65,11 @@ dependencies {
     implementation ("androidx.media3:media3-exoplayer:1.8.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.5")
     implementation("com.google.dagger:hilt-android:2.57.1")
+    // Media3 Exoplayer
+    implementation("androidx.media3:media3-exoplayer:1.2.1")
+// Media3 UI
+    implementation("androidx.media3:media3-ui:1.2.1")
+// Media3 Session
+    implementation("androidx.media3:media3-session:1.2.1")
 }
 

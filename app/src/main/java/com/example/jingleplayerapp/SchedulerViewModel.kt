@@ -168,7 +168,6 @@ class SchedulerViewModelFactory(
     }
 
     private fun createplaylist(gamesList:List<Game>,minutesbeforeendgame:Int):List<Song> {
-        Log.i("Scheduler Playlist", "calendar has ${gamesList.size}")
         var playlist: MutableList<Song> = mutableListOf()
         for (game in gamesList) {
             val now = Instant.now()

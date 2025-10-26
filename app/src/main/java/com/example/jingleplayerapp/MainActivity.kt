@@ -4,9 +4,11 @@ package com.example.jingleplayerapp
 import AudioFilePickerScreen
 import CalendarViewModel
 import CalendarViewModelFactory
+import PlaybackService
 import SchedulerViewModel
 import SchedulerViewModelFactory
 import android.app.Application
+import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
@@ -53,10 +55,14 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.RawResourceDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import com.example.jingleplayerapp.ui.theme.JingleplayerappTheme
+import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.AndroidEntryPoint
 import getFileName
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
 import mysuperMediaPlayer
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -93,6 +99,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+
+
         setContent {
             JingleplayerappTheme {
                 Mainmenu(this)
@@ -121,7 +130,6 @@ fun Mainmenu(context: Context) {
     val calendarState = calendarViewModel.uiState.collectAsState().value
 
     LaunchedEffect(Unit) {
-
         schedulerViewModel.playbackEvent.collect { playbackData ->
             // Access the song and length from the single object
             val songToPlay = playbackData.song
@@ -131,52 +139,18 @@ fun Mainmenu(context: Context) {
                 "PreEnd" to uiState.jingleuri.audioPreEnd,
                 "End" to uiState.jingleuri.audioEnd
             )
-            val uri= jinglemap[playbackData.song.type]?.uri
-
-            Log.i("Schedule player","Play callback")
-             val exoPlayer = ExoPlayer.Builder(context).build()
-            // handle audiofocus
-            val audioAttributes: AudioAttributes = AudioAttributes.Builder()
-                // .setUsage(C.USAGE_MEDIA)
-                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                // ducking
-                .setUsage(C.USAGE_ALARM)
-                //.setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
-                .build()
-            exoPlayer.setAudioAttributes(audioAttributes, true)
-
-
-
-            if (uri!=null){
-                Log.i("Schedule player","Start Playing ${uri}")
-                val mediaItem = MediaItem.fromUri(uri)
-                exoPlayer.setMediaItem(mediaItem)
-                exoPlayer.prepare()
-                exoPlayer.play()
-           /*     exoPlayer.addListener(object : Player.Listener {
-
-               override fun onPlaybackStateChanged(playbackState: Int) {
-                   if (playbackState == Player.STATE_ENDED) {
-                       // Stop playback and release focus when done
-                       exoPlayer.stop()
-                       exoPlayer.release()
-                   }
-               }
-               override fun onPlayerError(error: PlaybackException) {
-                   // Handle playback errors and stop the player
-                   exoPlayer.stop()
-                   exoPlayer.release()
-               }
-           })
-
-*/
-
-            delay(jingleLength.toLong() * 1000)
-            exoPlayer.stop()
+            val playbackservice = PlaybackService(application)
+            val uri = jinglemap[playbackData.song.type]?.uri
+            Log.i("Schedule player", "uri is ${uri}")
+            if (uri != null) {
+                Log.i("Schedule player", "Start Playing ${uri}")
+                playbackservice.playjingle(uri)
+                delay(jingleLength.toLong() * 1000)
+                playbackservice.stopplaying()
             }
-            exoPlayer.release()
         }
     }
+
 
 
     // val calendarState = calendarViewModel.uiState.collectAsState()
