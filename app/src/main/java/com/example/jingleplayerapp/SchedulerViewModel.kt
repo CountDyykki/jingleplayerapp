@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
 import com.example.jingleplayerapp.UIstate
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -38,8 +39,7 @@ data class SchedulerState(
     val nextsong: Song?=null,
     // time when the next jingle will be played
     val nextsongin: Duration?=null,
-    // start playing with this boolean
-    val isplaying: Boolean = false,
+    // infotxt of schedulerstate
     val infotxt: String=""
 )
 
@@ -71,9 +71,9 @@ class SchedulerViewModelFactory(
         val playbackEvent: SharedFlow<PlaybackData> = _playbackEvent.asSharedFlow()
 
     private val _schedState = MutableStateFlow(SchedulerState())
-    private val _uiState = MutableStateFlow(UIstate())
+    private val _uiState = MutableStateFlow(UIstate.create(application))
 
-    val schedState: StateFlow<SchedulerState> = _schedState.asStateFlow()
+    val schedState: StateFlow<SchedulerState> = _schedState
     private var schedulingJob: Job? = null
 
     init {
@@ -86,7 +86,7 @@ class SchedulerViewModelFactory(
     fun updateUiState(newState: UIstate) {
         _uiState.value = newState
     }
-    @OptIn(UnstableApi::class)
+    @OptIn(UnstableApi::class, ExperimentalCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     fun scheduleJingles(){
         Log.i("SchedulerJob","Starting job")
         schedulingJob?.cancel()
@@ -103,7 +103,7 @@ class SchedulerViewModelFactory(
                     val fullplaylist = createplaylist(calendaruistate.games,uiState.minutesbeforeendgame)
                     val upcomingPlaylist: List<Song> = emptyList()
                     if (fullplaylist.isEmpty()) {
-                        _schedState.update { it.copy(infotxt = "Empty Playlist. Consider loading a calendar") }
+                        _schedState.update { it.copy(infotxt = "Empty Playlist\nConsider selecting a calendar") }
                     }
                     else{
                         val now = Instant.now()
@@ -130,13 +130,14 @@ class SchedulerViewModelFactory(
                         }
                         // wenn die playlist einen weiter springt spielen wir den vorigen song ab.
                         actualsong?.let {
+                            // aber nur wenn wir nicht gerade pause gedrückt haben
+                            if (! _uiState.value.pausestate){
                             Log.i("Scheduler Val","Actual Song: ${actualsong.name} | ${actualsong.type} | ${actualsong.start}")
-
-                                _schedState.update { it.copy(isplaying = true) }
                                 Log.i("Schedule Player", "Playing ${ actualsong.name} | ${ actualsong.type} ")
                                 val playbackData = PlaybackData(song=actualsong, length = uiState.jinglelength)
                                 // Emit the single object to the SharedFlow
                                 _playbackEvent.emit(playbackData)
+                            }
                         }
                     }
                 }

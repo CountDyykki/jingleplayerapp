@@ -1,5 +1,4 @@
 import android.app.Application
-import android.content.Context
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -9,13 +8,23 @@ import kotlinx.coroutines.launch
 import android.provider.CalendarContract
 import android.database.Cursor
 import android.util.Log
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.application
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import jakarta.inject.Inject
 import java.time.Instant
 import kotlin.collections.List
 
@@ -45,6 +54,38 @@ class CalendarViewModelFactory(
     }
 }
 
+
+@Composable
+fun CalendarDropdown(calendarViewModel: CalendarViewModel) {
+    val calenderuiState = calendarViewModel.uiState.collectAsState().value
+    LaunchedEffect(Unit) {
+        // Trigger data loading once when the composable enters the composition
+        calendarViewModel.fetchCalendars()
+    }
+
+    Box(modifier = Modifier.wrapContentSize(Alignment.TopStart)) {
+        Row(
+            modifier = Modifier.clickable {
+                calendarViewModel.setDropdownExpanded(true)
+            }
+        ) {
+            Text(text = calenderuiState.selectedCalendar?.displayName ?: "No calendar selected", fontWeight = FontWeight.Bold)
+        }
+        DropdownMenu(
+            expanded = calenderuiState.isDropdownExpanded,
+            onDismissRequest = { calendarViewModel.setDropdownExpanded(false) }
+        ) {
+            calenderuiState.calendars.forEach { calendar ->
+                DropdownMenuItem(
+                    text = { Text(text = calendar.displayName) },
+                    onClick = {
+                        calendarViewModel.selectCalendar(calendar)
+                    }
+                )
+            }
+        }
+    }
+}
 class CalendarViewModel(
     application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(CalendarUiState())
