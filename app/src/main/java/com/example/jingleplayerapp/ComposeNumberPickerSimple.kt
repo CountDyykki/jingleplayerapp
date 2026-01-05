@@ -1,4 +1,3 @@
-import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -7,46 +6,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.jingleplayerapp.R
-import com.example.jingleplayerapp.UIstate
+import kotlin.Int
 
-
-@Composable
-fun Configuretimes(uistate: MutableState<UIstate>) {
-
-    // are copied over to the global uistate class
-    var delayminutes = remember { mutableIntStateOf(5) }
-    var jinglelength = remember { mutableIntStateOf(10) }
-    Log.i("Configure Times", "delayminutes: ${delayminutes} linglelength: ${jinglelength}")
-    uistate.value = uistate.value.copy(
-        minutesbeforeendgame = delayminutes.value,
-        jinglelength = jinglelength.value
-    )
-    Text(text="Timing",fontWeight= FontWeight.Bold)
-    Row{
-        Column(){
-            Text( "PreEnd Start time (min)")
-            Text( "Jingle duration (sec)")
-        }
-        Column(){
-            SimpleNumberPicker(
-                label = { it.toString() },
-                range = 0..30,
-                onValueChange = { delayminutes.value = it },
-                value = delayminutes.value
-            )
-            SimpleNumberPicker(
-                label = { it.toString() },
-                range = 0..30,
-                onValueChange = { jinglelength.value = it },
-                value = jinglelength.value
-            )
-        }
-    }
-}
 
 
 @Composable
@@ -106,7 +70,7 @@ fun SimpleNumberPicker(
 }
 
 @Composable
-fun SpinnerNumberPicker(
+fun SpinnerNumberPickerSimple(
     value: Int,
     onValueChange: (Int) -> Unit,
     range: IntRange,
@@ -132,3 +96,4 @@ fun SpinnerNumberPicker(
         }
     }
 }
+

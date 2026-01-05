@@ -4,7 +4,7 @@ package com.example.jingleplayerapp
 import CalendarDropdown
 import CalendarViewModel
 import CalendarViewModelFactory
-import Configuretimes
+
 import PlaybackService
 import SchedulerViewModel
 import SchedulerViewModelFactory
@@ -12,24 +12,25 @@ import SelectJinglesScreen
 import android.app.Application
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
+import androidx.annotation.RequiresApi
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentSize
+
 import androidx.compose.material3.BottomAppBar
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -38,9 +39,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
+
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -92,7 +94,7 @@ data class UIstate(
         fun create(context: Context): UIstate {
             return UIstate(
                 minutesbeforeendgame = 5,
-                jinglelength = 10,
+                jinglelength = 5,
                 jingleuri = JingleUriState.create(context),
                 pausestate = false
             )
@@ -103,6 +105,7 @@ data class UIstate(
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -114,13 +117,14 @@ class MainActivity : ComponentActivity() {
 }
 
 
+@RequiresApi(Build.VERSION_CODES.S)
 @OptIn(UnstableApi::class)
 @Composable
 fun Mainmenu() {
     val application = LocalContext.current.applicationContext as Application
     // instantiate the uistate
-    var jingleUriState = remember { mutableStateOf(JingleUriState.create(application)) }
-    var uiState = remember { mutableStateOf(UIstate.create(application)) }
+    val jingleUriState = remember { mutableStateOf(JingleUriState.create(application)) }
+    val uiState = remember { mutableStateOf(UIstate.create(application)) }
     uiState.value.jingleuri = jingleUriState.value
     // var jingleUriState by remember { mutableStateOf(JingleUriState.create(application)) }
     // First, get the CalendarViewModel using its factory
@@ -141,7 +145,7 @@ fun Mainmenu() {
     LaunchedEffect(Unit) {
         schedulerViewModel.playbackEvent.collect { playbackData ->
             // Access the song and length from the single object
-            val songToPlay = playbackData.song
+            // val songToPlay = playbackData.song
             val jingleLength = playbackData.length
             val jinglemap = mapOf(
                 "Start" to uiState.value.jingleuri.audioStart,
@@ -150,11 +154,11 @@ fun Mainmenu() {
             )
             val playbackservice = PlaybackService(application)
             val uri = jinglemap[playbackData.song.type]?.uri
-            Log.i("Schedule player", "uri is ${uri}")
+            Log.i("Schedule player", "uri is $uri")
             if (uri != null) {
-                Log.i("Schedule player", "Start Playing ${uri}")
+                Log.i("Schedule player", "Start Playing $uri")
                 playbackservice.playjingle(uri)
-                Log.i("Schedule player", "Delaying stop by ${jingleLength}")
+                Log.i("Schedule player", "Delaying stop by $jingleLength")
                 if (jingleLength.toLong()> 0) {
                     Log.i("Schedule player", "Delaying stop")
                     delay(jingleLength.toLong() * 1000)
@@ -216,8 +220,8 @@ fun FAB(uistate: MutableState<UIstate>) {
     }
 
 
-
-
+@RequiresApi(Build.VERSION_CODES.S)
+@OptIn(UnstableApi::class)
 @Composable
 fun PlaylistScreen(schedulerViewModel: SchedulerViewModel) {
     val schedulerstate by schedulerViewModel.schedState.collectAsState()
@@ -234,8 +238,8 @@ fun PlaylistScreen(schedulerViewModel: SchedulerViewModel) {
 }
 
 
-
-
+@RequiresApi(Build.VERSION_CODES.S)
+@OptIn(UnstableApi::class)
 @Composable
 fun SchedulerScreen( schedulerViewModel: SchedulerViewModel){
     val schedulerstate by schedulerViewModel.schedState.collectAsState()
@@ -245,3 +249,38 @@ fun SchedulerScreen( schedulerViewModel: SchedulerViewModel){
     )
 }
 
+@Composable
+fun Configuretimes(uistate: MutableState<UIstate>) {
+
+    // are copied over to the global uistate class
+    val minutesbeforeendgame = remember { mutableIntStateOf(uistate.value.minutesbeforeendgame) }
+    val jinglelength = remember { mutableIntStateOf(uistate.value.jinglelength) }
+    Log.i("Configure Times", "delayminutes: $minutesbeforeendgame linglelength: $jinglelength")
+    uistate.value = uistate.value.copy(
+        minutesbeforeendgame = minutesbeforeendgame.intValue,
+        jinglelength = jinglelength.intValue
+    )
+    Text(text="Timing",fontWeight= FontWeight.Bold)
+    Row{
+        Column {
+            Text( "PreEnd Start time (min)")
+            Text( "Jingle duration (sec)")
+        }
+        Column {
+            NumberPickerHorizontal(
+                state = minutesbeforeendgame,
+                modifier = Modifier,
+                range = 0..30,
+                textStyle = LocalTextStyle.current,
+                onStateChanged = { minutesbeforeendgame.intValue = it },
+            )
+            NumberPickerHorizontal(
+                state = jinglelength,
+                modifier = Modifier,
+                range = 0..60,
+                textStyle = LocalTextStyle.current,
+                onStateChanged = { jinglelength.intValue = it },
+            )
+        }
+    }
+}

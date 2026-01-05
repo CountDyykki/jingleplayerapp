@@ -1,9 +1,10 @@
 import android.app.Application
+import android.os.Build
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -50,6 +51,7 @@ class SchedulerViewModelFactory(
     private val application: Application,
     private val calendarViewModel: CalendarViewModel // Correctly passing the dependency
 ) : ViewModelProvider.Factory {
+    @RequiresApi(Build.VERSION_CODES.S)
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SchedulerViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
@@ -58,6 +60,7 @@ class SchedulerViewModelFactory(
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }
+    @RequiresApi(Build.VERSION_CODES.S)
     @UnstableApi
     class SchedulerViewModel(
         application: Application,
@@ -86,7 +89,10 @@ class SchedulerViewModelFactory(
     fun updateUiState(newState: UIstate) {
         _uiState.value = newState
     }
-    @OptIn(UnstableApi::class, ExperimentalCoroutinesApi::class, ExperimentalCoroutinesApi::class)
+    @RequiresApi(Build.VERSION_CODES.S)
+    @OptIn(UnstableApi::class, ExperimentalCoroutinesApi::class, ExperimentalCoroutinesApi::class,
+        ExperimentalCoroutinesApi::class
+    )
     fun scheduleJingles(){
         Log.i("SchedulerJob","Starting job")
         schedulingJob?.cancel()
@@ -101,7 +107,7 @@ class SchedulerViewModelFactory(
                     Log.i("Scheduler","minutesbeforeendgame: ${uiState.minutesbeforeendgame}")
                      // first we create a playlist from the songs still to play
                     val fullplaylist = createplaylist(calendaruistate.games,uiState.minutesbeforeendgame)
-                    val upcomingPlaylist: List<Song> = emptyList()
+                    // val upcomingPlaylist: List<Song> = emptyList()
                     if (fullplaylist.isEmpty()) {
                         _schedState.update { it.copy(infotxt = "Empty Playlist\nConsider selecting a calendar") }
                     }
@@ -120,7 +126,7 @@ class SchedulerViewModelFactory(
 
                         nextsong?.let {
                             Log.i("Scheduler Val","Next song: ${nextsong.name} | ${nextsong.type} |${nextsong.start} ")
-                            var nextsongin = Duration.between(now, nextsong.start)
+                            val nextsongin = Duration.between(now, nextsong.start)
                         _schedState.update { it.copy(
                             playlist= upcomingPlaylist,
                             nextsongin = nextsongin,
@@ -153,9 +159,9 @@ class SchedulerViewModelFactory(
     }
 
     private fun createplaylist(gamesList:List<Game>,minutesbeforeendgame:Int):List<Song> {
-        var playlist: MutableList<Song> = mutableListOf()
+        val playlist: MutableList<Song> = mutableListOf()
         for (game in gamesList) {
-            val now = Instant.now()
+            // val now = Instant.now()
             val songStart = Song(game.name, "Start", game.start)
             val songEnd = Song(game.name, "End", game.end)
             val eventDeltaEndDateTime = game.end.minusSeconds(minutesbeforeendgame.toLong() * 60)
@@ -167,9 +173,9 @@ class SchedulerViewModelFactory(
             // if (now.isBefore(songEnd.start)) {
                 playlist.add(songEnd)
             // }
-            //if (now.isBefore(songDeltaEnd.start) && minutesbeforeendgame > 0) {
+            if (minutesbeforeendgame > 0) {
                 playlist.add(songDeltaEnd)
-            // }
+             }
         }
         playlist.sortBy { it.start }
         // update the uiState
