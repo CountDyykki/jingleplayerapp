@@ -94,7 +94,7 @@ data class UIstate(
         fun create(context: Context): UIstate {
             return UIstate(
                 minutesbeforeendgame = 5,
-                jinglelength = 5,
+                jinglelength = 10,
                 jingleuri = JingleUriState.create(context),
                 pausestate = false
             )
