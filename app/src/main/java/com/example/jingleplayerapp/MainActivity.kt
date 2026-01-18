@@ -141,11 +141,27 @@ fun Mainmenu() {
         Log.i("Launched Effect", "Launcher uistate minutesbeforeendgame is ${uiState.value.minutesbeforeendgame}")
     }
 
+    // mute if muted pressed
+    LaunchedEffect(uiState.value.pausestate) {
+        if (uiState.value.pausestate) {
+            val playbackservice = PlaybackService(application)
+            playbackservice.stopplaying()
+        }
+    }
+
+
     // collect playback event from scheduler
     LaunchedEffect(Unit) {
         schedulerViewModel.playbackEvent.collect { playbackData ->
             // Access the song and length from the single object
             // val songToPlay = playbackData.song
+            // 1. Check the pause state BEFORE starting playback
+            if (uiState.value.pausestate) {
+                Log.i("Schedule player", "System is MUTED (pausestate true). Skipping playback.")
+                return@collect // Skip this execution
+            }
+
+
             val jingleLength = playbackData.length
             val jinglemap = mapOf(
                 "Start" to uiState.value.jingleuri.audioStart,
