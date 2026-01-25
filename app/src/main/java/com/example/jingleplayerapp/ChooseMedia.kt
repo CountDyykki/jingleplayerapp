@@ -1,6 +1,9 @@
 import android.content.ContentResolver
 import android.content.Context
+import android.database.Cursor
+import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.activity.compose.ManagedActivityResultLauncher
@@ -23,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.jingleplayerapp.JingleUri
 import com.example.jingleplayerapp.JingleUriState
+
 
 @Composable
 fun SelectJinglesScreen(jingleUriState: MutableState<JingleUriState>) {
@@ -86,15 +90,17 @@ fun pickaudiofile(jingleUriState: MutableState<JingleUriState>, type: String): M
     ) { uri: Uri? ->
         if (uri != null) {
             val filename = getFileName(context, uri) ?: "Take Default"
+            val filepath=getFilePath(context,uri)
+            val jinglelength= getAudioFileLengthInSeconds(filepath)
             when (type) {
                 "Start" -> {
-                    jingleUriState.value = jingleUriState.value.copy(audioStart = JingleUri(uri, filename))
+                    jingleUriState.value = jingleUriState.value.copy(audioStart = JingleUri(uri, filename,jinglelength))
                 }
                 "PreEnd" -> {
-                    jingleUriState.value = jingleUriState.value.copy(audioPreEnd = JingleUri(uri, filename))
+                    jingleUriState.value = jingleUriState.value.copy(audioPreEnd = JingleUri(uri, filename,jinglelength))
                 }
                 "End" -> {
-                    jingleUriState.value = jingleUriState.value.copy(audioEnd = JingleUri(uri, filename))
+                    jingleUriState.value = jingleUriState.value.copy(audioEnd = JingleUri(uri, filename,jinglelength))
                 }
                 else -> {
                     // Handle other cases or do nothing
@@ -120,4 +126,35 @@ fun getFileName(context: Context, uri: Uri?): String? {
         }
     }
     return fileName
+}
+
+fun getFilePath(context: Context, uri: Uri?): String? {
+    if (uri == null) return null
+    var filePath: String? = null
+    val contentResolver: ContentResolver = context.contentResolver
+    val projection = arrayOf(MediaStore.MediaColumns.DATA)
+    val cursor: Cursor? = contentResolver.query(uri, projection, null, null, null)
+    cursor?.use {
+        if (it.moveToFirst()) {
+            val columnIndex = it.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA)
+            filePath = it.getString(columnIndex)
+        }
+    }
+    return filePath
+}
+
+fun getAudioFileLengthInSeconds(filePath: String?): Int {
+    val retriever = MediaMetadataRetriever()
+    return try {
+        retriever.setDataSource(filePath)
+        val timeString = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+
+        // Konvertierung von String -> Long (ms) -> Int (s)
+        val timeInMillis = timeString?.toLong() ?: 0L
+        (timeInMillis / 1000).toInt()
+    } catch (e: Exception) {
+        0
+    } finally {
+        retriever.release()
+    }
 }

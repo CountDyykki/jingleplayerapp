@@ -76,5 +76,7 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.2.1")
 // Media3 Session
     implementation("androidx.media3:media3-session:1.2.1")
+    // jaudiotagger to get length of mp3 file
+    implementation("org.jaudiotagger:jaudiotagger:2.0.1")
 }
 

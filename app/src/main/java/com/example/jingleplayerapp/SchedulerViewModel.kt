@@ -29,8 +29,8 @@ import kotlin.collections.List
 
 
 // Ein Song ist ein Eintrag in der Playlist
-data class Song(val name: String, val type: String, val start: Instant)
-data class PlaybackData(val song: Song, val length: Int)
+data class Song(val name: String, val type: String, val start: Instant, val length: Int)
+
 
 // Das ist die State-Klasse die dieses viewmodel bereitstellt.
 data class SchedulerState(
@@ -68,10 +68,10 @@ class SchedulerViewModelFactory(
     ) : AndroidViewModel(application) {
 
 
-        private val _playbackEvent = MutableSharedFlow<PlaybackData>()
+        private val _playbackEvent = MutableSharedFlow<Song>()
 
         // Make it public as a SharedFlow
-        val playbackEvent: SharedFlow<PlaybackData> = _playbackEvent.asSharedFlow()
+        val playbackEvent: SharedFlow<Song> = _playbackEvent.asSharedFlow()
 
     private val _schedState = MutableStateFlow(SchedulerState())
     private val _uiState = MutableStateFlow(UIstate.create(application))
@@ -106,7 +106,7 @@ class SchedulerViewModelFactory(
                     Log.i("SchedulerJob", "Scheduling Step.")
                     Log.i("Scheduler","minutesbeforeendgame: ${uiState.minutesbeforeendgame}")
                      // first we create a playlist from the songs still to play
-                    val fullplaylist = createplaylist(calendaruistate.games,uiState.minutesbeforeendgame)
+                    val fullplaylist = createplaylist(calendaruistate.games,uiState.minutesbeforeendgame,uiState.jingleuri.audioStart.length,uiState.jingleuri.audioPreEnd.length,uiState.jingleuri.audioEnd.length)
                     // val upcomingPlaylist: List<Song> = emptyList()
                     if (fullplaylist.isEmpty()) {
                         _schedState.update { it.copy(infotxt = "Empty Playlist\nConsider selecting a calendar") }
@@ -138,11 +138,10 @@ class SchedulerViewModelFactory(
                         actualsong?.let {
                             // aber nur wenn wir nicht gerade pause gedrückt haben
                             if (! _uiState.value.pausestate){
-                            Log.i("Scheduler Val","Actual Song: ${actualsong.name} | ${actualsong.type} | ${actualsong.start}")
+                                Log.i("Scheduler Val","Actual Song: ${actualsong.name} | ${actualsong.type} | ${actualsong.start}")
                                 Log.i("Schedule Player", "Playing ${ actualsong.name} | ${ actualsong.type} ")
-                                val playbackData = PlaybackData(song=actualsong, length = uiState.jinglelength)
                                 // Emit the single object to the SharedFlow
-                                _playbackEvent.emit(playbackData)
+                                _playbackEvent.emit(actualsong)
                             }
                         }
                     }
@@ -158,20 +157,21 @@ class SchedulerViewModelFactory(
         }
     }
 
-    private fun createplaylist(gamesList:List<Game>,minutesbeforeendgame:Int):List<Song> {
+    private fun createplaylist(gamesList:List<Game>,minutesbeforeendgame:Int,startlength:Int, preendlength:Int, endlength:Int):List<Song> {
         val playlist: MutableList<Song> = mutableListOf()
         for (game in gamesList) {
             // val now = Instant.now()
-            val songStart = Song(game.name, "Start", game.start)
-            val songEnd = Song(game.name, "End", game.end)
-            val eventDeltaEndDateTime = game.end.minusSeconds(minutesbeforeendgame.toLong() * 60)
-            val songDeltaEnd = Song(game.name, "PreEnd", eventDeltaEndDateTime)
+            // Die Songs sollen zu ihrem Abspielende aufhören
+            val songStart = Song(game.name, "Start", game.start.minusSeconds(startlength.toLong()),startlength)
+            val songEnd = Song(game.name, "End", game.end.minusSeconds(endlength.toLong()),endlength)
+            val eventDeltaEndDateTime = game.end.minusSeconds(minutesbeforeendgame.toLong() * 60).minusSeconds(preendlength.toLong())
+            val songDeltaEnd = Song(game.name, "PreEnd", eventDeltaEndDateTime,preendlength)
 
            // if (now.isBefore(songStart.start)) {
-               playlist.add(songStart)
+           playlist.add(songStart)
            //  }
             // if (now.isBefore(songEnd.start)) {
-                playlist.add(songEnd)
+            playlist.add(songEnd)
             // }
             if (minutesbeforeendgame > 0) {
                 playlist.add(songDeltaEnd)

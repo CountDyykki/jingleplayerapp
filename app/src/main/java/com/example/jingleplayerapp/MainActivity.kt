@@ -11,6 +11,7 @@ import SchedulerViewModelFactory
 import SelectJinglesScreen
 import android.app.Application
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -57,7 +58,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.Int
 
-data class JingleUri(val uri: Uri, val name: String)
+data class JingleUri(val uri: Uri, val name: String, val length: Int)
+
 
 data class JingleUriState(
     val audioStart: JingleUri,
@@ -69,15 +71,18 @@ data class JingleUriState(
             return JingleUriState(
                 audioStart = JingleUri(
                     Uri.parse("android.resource://${context.packageName}/${R.raw.start}"),
-                    "Default Start"
+                    "Default Start",
+                    getAudioFileLengthInSecondsRaw(context,R.raw.start)
                 ),
                 audioPreEnd = JingleUri(
                     Uri.parse("android.resource://${context.packageName}/${R.raw.deltaend}"),
-                    "Default PreEnd"
+                    "Default PreEnd",
+                    getAudioFileLengthInSecondsRaw(context,R.raw.deltaend)
                 ),
                 audioEnd = JingleUri(
                     Uri.parse("android.resource://${context.packageName}/${R.raw.end}"),
-                    "Default End"
+                    "Default End",
+                    getAudioFileLengthInSecondsRaw(context,R.raw.end)
                 )
             )
         }
@@ -94,7 +99,7 @@ data class UIstate(
         fun create(context: Context): UIstate {
             return UIstate(
                 minutesbeforeendgame = 5,
-                jinglelength = 10,
+                jinglelength = 0,
                 jingleuri = JingleUriState.create(context),
                 pausestate = false
             )
@@ -169,13 +174,13 @@ fun Mainmenu() {
                 "End" to uiState.value.jingleuri.audioEnd
             )
             val playbackservice = PlaybackService(application)
-            val uri = jinglemap[playbackData.song.type]?.uri
+            val uri = jinglemap[playbackData.type]?.uri
             Log.i("Schedule player", "uri is $uri")
             if (uri != null) {
                 Log.i("Schedule player", "Start Playing $uri")
                 playbackservice.playjingle(uri)
                 Log.i("Schedule player", "Delaying stop by $jingleLength")
-                if (jingleLength.toLong()> 0) {
+                if (jingleLength> 0) {
                     Log.i("Schedule player", "Delaying stop")
                     delay(jingleLength.toLong() * 1000)
                     playbackservice.stopplaying()
@@ -280,7 +285,7 @@ fun Configuretimes(uistate: MutableState<UIstate>) {
     Row{
         Column {
             Text( "PreEnd Start time (min)")
-            Text( "Jingle duration (sec)")
+          //  Text( "Jingle duration (sec)")
         }
         Column {
             NumberPickerHorizontal(
@@ -290,13 +295,35 @@ fun Configuretimes(uistate: MutableState<UIstate>) {
                 textStyle = LocalTextStyle.current,
                 onStateChanged = { minutesbeforeendgame.intValue = it },
             )
-            NumberPickerHorizontal(
-                state = jinglelength,
-                modifier = Modifier,
-                range = 0..60,
-                textStyle = LocalTextStyle.current,
-                onStateChanged = { jinglelength.intValue = it },
-            )
+          //  NumberPickerHorizontal(
+          //      state = jinglelength,
+          //      modifier = Modifier,
+          //      range = 0..60,
+          //      textStyle = LocalTextStyle.current,
+          //      onStateChanged = { jinglelength.intValue = it },
+          //  )
         }
+    }
+}
+
+
+fun getAudioFileLengthInSecondsRaw(context: Context, resId: Int): Int {
+    val retriever = MediaMetadataRetriever()
+    return try {
+        // Lädt die Ressource direkt über den Filedeskriptor
+        val afd = context.resources.openRawResourceFd(resId)
+        retriever.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+        afd.close()
+
+        val timeString = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+
+        // Konvertierung von String -> Long (ms) -> Int (s)
+        val timeInMillis = timeString?.toLong() ?: 0L
+        (timeInMillis / 1000).toInt()
+
+    } catch (e: Exception) {
+        0
+    } finally {
+        retriever.release()
     }
 }
