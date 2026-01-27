@@ -40,3 +40,6 @@ For live events, you simply need to add the definition of your events. Follow th
    * Set the Pre-End timing interval.
    * Tap Select Calendar and choose your live match-day calendar.
 * Automation: The app will automatically queue and play the jingles at the calculated timestamps.
+
+## Contributions
+... are always welcome. Get in touch!
