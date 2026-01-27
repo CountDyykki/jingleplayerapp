@@ -1,41 +1,42 @@
-INTRODUCTION
+# JinglePlayer User Manual
 
-The jingleplayer app is inspired by Jonas Sitzmann's Linux version (https://github.com/jonasitzmann/jingle_player).
-With the help of this android app you can play music from your phone (e.g. from spotify or any stream) and interrupt the music stream be play a Jingle. 
-The timing of the jingles is defined by calendar events from a predefined calendar in your calendar app.
+The JinglePlayer app for Android is inspired by Jonas Sitzmann's Linux Jingle Player https://github.com/jonasitzmann/jingle_player. 
+This tool allows you to seamlessly integrate jingles into your active music stream (e.g., Spotify or web streams) based on your mobile calendar events.
 
-There are two mandatory jingles which are played at the start and end of the calendar event and an optional jingle played x minutes before the end of the calendar event (PrEnd).
+## Functional Overview
 
-Keep in mind, that the app will scheudle the jingles in such a way that the end of the jingle will coincide with the corresponding calendar event Start/PreEnd/End. So once the Start jingle is finished the calendar Event will start.
+The app automates jingle playback by syncing with a dedicated calendar. It ensures precise timing by scheduling jingles so that they finish exactly at the event's milestone:
 
-There is a set of defaut jingles available in the app. You can alternatively define your own jingles to be used.
+* Start Jingle: Ends exactly when the calendar event begins.
+* Pre-End Jingle (PrEnd): Ends at a user-defined interval before the event conclusion.
+* End Jingle: Ends exactly when the calendar event expires.
 
-INSTALLATION
+## Installation
+To install the application, follow these steps:
+* Download: Obtain the latest APK from the Official GitHub Repository. https://github.com/CountDyykki/jingleplayerapp/blob/main/app/build/outputs/apk/debug/app-debug.apk 
+* Install: Open the APK on your Android device. You may need to "Allow installation from unknown sources" in your security settings.
+* Permissions:
+    * Locate the JinglePlayer icon.
+    * Long-press the icon and select App Info.
+    * Navigate to Permissions and grant access to the Calendar.
+* Launch: You are now ready to open the app.
 
-* Download the following apk file on your phone:
-https://github.com/CountDyykki/jingleplayerapp/blob/main/app/build/outputs/apk/debug/app-debug.apk
-* Install the apk file on your phone and check that you trust the owner. The app is called JinglePlayer
-* Long-Click on the app icon and choose App-Info. Allow access to the Calendar
-* You should now be able to start the app
+## Configuration & First Test
+To verify the setup, perform a test run using the built-in test calendar:
+* Initialize Audio: Start your preferred music stream (Spotify, Radio, etc.).
+* Open JinglePlayer: Launch the application.
+* Select Jingles:
+     Use the default sounds or tap the Start, PreEnd, and End buttons to select custom audio files from your device.
+* Set Timing: In the Timing section, define the "Minutes before end" for the Pre-End jingle.
+        Note: Setting this to 0 will disable the Pre-End jingle.
+* Run Test: Tap TestCalendar. This generates dummy events starting in the immediate future to confirm the playback logic and ducking behavior.
 
-A FIRST TEST RUN
-* Start your Music Stream
-* Start the JinglePlayer App
-* Configure Section Select Jingles:
-If you want to play user-defined jingles select them from your phone using the Start, PreEnd and End Buttons
-* Configure Section Timing:
-Define how minutes before the end of the event you want to the PreEnd Jingle to be played. Default is 5 Minutes. If you choose 0 minutes the PreEnd jingle will be skipped.
-* Select TestCalender:
-  Klick on TestCalender and select the TestCalender for a first test. This calendar will start events a few minutes from now to check if everything is working as planned
-* The Jingles will be added to the playlist and played one after the other
-
-SERIOUS MATCH DAY
-* Add a new calendar to your calendar app and define events in this calendar with name, start time and end time.
-* Start your Music Stream
-* Start the JinglePlayer App
-* Configure your Jingles
-* Configure the PreEnd Timing
-* Select your Calendar
-* The Jingles will be added to the playlist and played one after the other
- 
-
+## Serious Match Day Operation
+For live events, you simply need to add the definition of your events. Follow this workflow:
+* Calendar Setup: Create a dedicated calendar in your Android Calendar App. Add events with specific start and end times.
+* Prepare Stream: Start your background music.
+* Active JinglePlayer:
+   * Select your custom jingle files.
+   * Set the Pre-End timing interval.
+   * Tap Select Calendar and choose your live match-day calendar.
+* Automation: The app will automatically queue and play the jingles at the calculated timestamps.
